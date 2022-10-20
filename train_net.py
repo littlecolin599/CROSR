@@ -29,7 +29,7 @@ def get_args():
 
     return parser.parse_args()
 
-def epoch_train(epoch_no,net,trainloader,optimizer):
+def epoch_train(epoch_no, net,trainloader, optimizer):
         
     net.train() 
     correct=0
@@ -94,7 +94,7 @@ def epoch_val(net,testloader):
     cls_criterion = nn.CrossEntropyLoss()
     reconst_criterion = nn.MSELoss()
 
-    with torch.no_grad():
+    with torch.no_grad():  # 在确知不使用反向传播的情况下，可以减少内存消耗
         for data in testloader:
 
             images, labels = data
@@ -121,9 +121,8 @@ def epoch_val(net,testloader):
     return [(100 * (correct / total)), (total_cls_loss/iter), (total_reconst_loss/iter), (total_loss/iter)]
                  
 
-
 def main():
-
+    # 设置随机种子，防止每次运行结果不同
     seed = 222
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -144,11 +143,11 @@ def main():
     print("Num classes "+str(num_classes))
 
     transform_train = transforms.Compose([
-        transforms.ColorJitter(brightness=0.5, hue=0.3),
-        transforms.RandomAffine(degrees=30,translate =(0.2,0.2),scale=(0.75,1.0)),
-        transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(brightness=0.5, hue=0.3),  # 改变图像亮度， 色调
+        transforms.RandomAffine(degrees=30,translate =(0.2,0.2),scale=(0.75,1.0)),  # 随机旋转、水平垂直平移、比例缩放
+        transforms.RandomHorizontalFlip(),  # 随机水平翻转
         transforms.ToTensor(),
-        transforms.Normalize(means,stds),
+        transforms.Normalize(means,stds),  # 均值、方差
     ])
 
     transform_test = transforms.Compose([
@@ -170,7 +169,7 @@ def main():
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                             shuffle=False,pin_memory=True,drop_last=True)
 
-    net = models.DHRNet(num_classes)
+    net = models.DHRNet(num_classes) # num_classes为训练集中的类别数
     net = torch.nn.DataParallel(net.cuda())
 
 

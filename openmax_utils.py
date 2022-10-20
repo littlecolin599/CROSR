@@ -5,7 +5,8 @@ import os.path as path
 import argparse
 import scipy.spatial.distance as spd
 import scipy as sp
-import libmr
+import libMR
+import numpy as np
 
 from sklearn.metrics import roc_auc_score
 
@@ -51,6 +52,6 @@ def compute_distance(query_vector, mean_vec, distance_type = 'eucos'):
     elif distance_type == 'cosine':
         query_distance = spd.cosine(mean_vec, query_vector)
     else:
-        print "distance type not known: enter either of eucos, euclidean or cosine"
+        print("distance type not known: enter either of eucos, euclidean or cosine")
     return query_distance
     

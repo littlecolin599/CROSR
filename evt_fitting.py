@@ -10,7 +10,7 @@ from scipy.io import loadmat
 from openmax_utils import *
 import numpy as np
 
-import libmr
+import libMR
 
 
 #---------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ def weibull_tailfitting(meanfiles_path, distancefiles_path,
 
         distance_scores = distance_scores.tolist()
 
-        mr = libmr.MR()
+        mr = libMR.MR()
 
         tailtofit = sorted(distance_scores)[-tailsize:]
 
