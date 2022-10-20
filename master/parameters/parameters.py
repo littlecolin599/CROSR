@@ -9,8 +9,8 @@ random.seed(1)
 
 class Hyperparameters:
     def __init__(self):
-        self.batch_size = 128
-        self.epochs = 5
+        self.batch_size = 48
+        self.epochs = 100
         self.lr = 0.05
         self.alpha = 0.8
 
@@ -19,13 +19,13 @@ class Hyperparameters:
         self.train_rate = 0.8
         self.image_channel = 1
 
-        self.mode = 'train'  # train or test
+        self.mode = 'test'  # train or test
         self.dataset_dir = '../../datasets/mstar10'  # mstar
         self.save_path = '../save_models/mstar10'
 
-        self.use_gpu = False
+        self.use_gpu = True
 
-        self.dist_type = 'L1'
+        self.dist_type = 'L2'
         self.model = 'cnn'
         self.momentum = 0.9
         self.weight_decay = 0.0005
@@ -33,8 +33,8 @@ class Hyperparameters:
         self.means = 0.5
         self.stds = 0.5
 
-        self.no_total = 10
-        self.no_closed = 8
+        self.no_total = 12
+        self.no_closed = 10
         self.no_open = 2
         self.kwn, self.unk = GetKwnUnkClasses(self.no_total, self.no_closed, self.no_open, 'sequential')
         self.knw_labels, self.unk_labels = GetAllLabels(self.kwn, self.unk, self.dataset_dir)
@@ -43,7 +43,8 @@ class Hyperparameters:
             # transforms.ColorJitter(brightness=0.5, hue=0.3),  # 改变图像亮度， 色调
             transforms.CenterCrop(self.image_size),
             transforms.RandomAffine(degrees=30, translate=(0.2, 0.2), scale=(0.75, 1.0)),  # 随机旋转、水平垂直平移、比例缩放
-            transforms.RandomHorizontalFlip(),  # 随机水平翻转
+            transforms.RandomHorizontalFlip(),   # 随机水平翻转
+            transforms.RandomVerticalFlip(),
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             transforms.Normalize(self.means, self.stds),  # 均值、方差

@@ -1,13 +1,9 @@
 import torch
 import random
-import torchvision
 import torchvision.transforms as transforms
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import DHR_Net as models
+from master.models import DHR_Net as models
 import numpy as np
-import pickle
 import os
 from PIL import Image
 

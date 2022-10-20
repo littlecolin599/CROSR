@@ -95,10 +95,10 @@ def acc_score(true_lab, false_lab):
 
 
 def train_model(net, traindataloader, train_rate, ce_criterion, mse_criterion, num_epochs):
-    # optimizer = optim.SGD(net.parameters(), lr=hyper_para.lr, momentum=hyper_para.momentum, weight_decay=hyper_para.weight_decay)
+    # optimizer = optim.SGD(net.parameters(), lr=hyper_para.lr, momentum=hyper_para.momentum, weight_decay=hyper_para.weight_decay) # 随机梯度下降
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.5)
 
-    optimizer = torch.optim.Adam(net.parameters(), lr=hyper_para.lr)
+    optimizer = torch.optim.SGD(net.parameters(), lr=hyper_para.lr)
     batch_num = len(traindataloader)
     train_batch_num = round(batch_num * train_rate)
     best_model_wts = copy.deepcopy(net.state_dict())
@@ -121,6 +121,9 @@ def train_model(net, traindataloader, train_rate, ce_criterion, mse_criterion, n
             if step < train_batch_num:
                 ttt += 1
                 net.train()
+                # zero the parameter gradients
+                optimizer.zero_grad()
+
                 # forward + backward + optimize
                 logits, reconstruct, _ = net(b_x)
                 pre_lab = torch.argmax(logits, 1)
@@ -128,11 +131,11 @@ def train_model(net, traindataloader, train_rate, ce_criterion, mse_criterion, n
                 loss_rc = mse_criterion(reconstruct, b_x)  # 重建误差
                 loss_tl = hyper_para.alpha * loss_rc + (1 - hyper_para.alpha) * loss_cc
                 tr_acc = acc_score(b_y.data, pre_lab)
-                # zero the parameter gradients
-                optimizer.zero_grad()
+
                 loss_tl.backward()
+                # loss_cc.backward()
                 optimizer.step()
-                train_loss_all.append(loss_rc.item())
+                train_loss_all.append(loss_tl.item())
                 train_acc_all.append(tr_acc.item())
             else:
                 vvv += 1
@@ -223,7 +226,7 @@ def test():
         transforms.Normalize(0.5, 0.5)
     ])
     if hyper_para.use_gpu:
-        net = net.cuda()
+        net = torch.nn.DataParallel(net.cuda())
     # 加载模型
     net.load_state_dict(torch.load('../save_folder/models/DHR_' + str(hyper_para.epochs) + '.pth'))
 
@@ -290,6 +293,9 @@ def test():
         all_test_score[k] = logits.data.cpu().numpy()
         k += 1
         i += 1
+    accuracy = 100. * correct / knwTotal
+    print('Test on close set....')
+    print('\n Accuracy on Test: {}/{} ({:.0f}%)\n'.format(correct, knwTotal, accuracy))
 
     vvv = 0
     iii = 0
@@ -384,14 +390,15 @@ def train():
                                      transform=hyper_para.trainTransforms,
                                      valid_classes=hyper_para.knw_labels)
 
-    trainLoader = torch.utils.data.DataLoader(trainSet, batch_size=hyper_para.batch_size,
-                                              shuffle=True, pin_memory=True, drop_last=True)
+    trainLoader = torch.utils.data.DataLoader(trainSet, batch_size=hyper_para.batch_size, shuffle=True)
 
     net = DHRNet(hyper_para.no_closed)
+    ce_criterion = nn.CrossEntropyLoss()
+    mse_criterion = nn.MSELoss()
     if hyper_para.use_gpu:
         net = torch.nn.DataParallel(net.cuda())
-    ce_criterion = nn.CrossEntropyLoss()
-    mse_criterion = nn.L1Loss()
+        ce_criterion = ce_criterion.cuda()
+        mse_criterion = mse_criterion.cuda()
 
     net, train_process, val_process = train_model(
         net, trainLoader, hyper_para.train_rate, ce_criterion, mse_criterion, num_epochs=hyper_para.epochs
@@ -403,6 +410,3 @@ def train():
     plt.subplot(2, 2, 4), plt.plot(val_process.epoch, val_process.val_acc_all, label="Val acc")
     plt.show()
     torch.save(net.state_dict(), '../save_folder/models/DHR_' + str(hyper_para.epochs) + '.pth')  # 保存模型
-
-
-
