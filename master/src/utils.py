@@ -29,6 +29,7 @@ def SetupImageFolders():
     os.makedirs('../save_folder/results/encoded_images/' + '/kwn/')
     os.makedirs('../save_folder/results/encoded_images/' + '/unw/')
 
+
 def GetDistance(input1, input2, hyper_para):
     dist = None
     if hyper_para.dist_type == 'L1':
@@ -101,11 +102,14 @@ def train_model(net, traindataloader, train_rate, ce_criterion, mse_criterion, n
     optimizer = torch.optim.SGD(net.parameters(), lr=hyper_para.lr)
     batch_num = len(traindataloader)
     train_batch_num = round(batch_num * train_rate)
+    # net.load_state_dict(torch.load('../save_folder/models/DHR_200.pth'))  # 预训练200次
     best_model_wts = copy.deepcopy(net.state_dict())
     best_loss = 100
     best_acc = 0.0
 
     train_loss_all = []
+    train_loss_cc = []
+    train_loss_rc = []
     train_acc_all = []
     val_loss_all = []
     val_acc_all = []
@@ -133,9 +137,10 @@ def train_model(net, traindataloader, train_rate, ce_criterion, mse_criterion, n
                 tr_acc = acc_score(b_y.data, pre_lab)
 
                 loss_tl.backward()
-                # loss_cc.backward()
                 optimizer.step()
                 train_loss_all.append(loss_tl.item())
+                train_loss_cc.append(loss_cc.item())
+                train_loss_rc.append(loss_rc.item())
                 train_acc_all.append(tr_acc.item())
             else:
                 vvv += 1
@@ -163,6 +168,8 @@ def train_model(net, traindataloader, train_rate, ce_criterion, mse_criterion, n
     train_process = pd.DataFrame(
         data={"epoch": range(len(train_loss_all)),
               "train_loss_all": train_loss_all,
+              "train_loss_cc": train_loss_cc,
+              "train_loss_rc": train_loss_rc,
               "train_acc_all": train_acc_all,
               })
     val_process = pd.DataFrame(
@@ -171,48 +178,6 @@ def train_model(net, traindataloader, train_rate, ce_criterion, mse_criterion, n
               "val_acc_all": val_acc_all
               })
     return net, train_process, val_process
-    '''
-    for i, data in enumerate(traindataloader):
-
-        # get the inputs; data is a list of [inputs, labels]
-        inputs, labels = data
-        inputs = inputs.cuda(non_blocking=True)
-        labels = labels.cuda(non_blocking=True)
-
-        # zero the parameter gradients
-        optimizer.zero_grad()
-
-        # forward + backward + optimize
-        logits, reconstruct, _ = net(inputs)
-
-        cls_loss = cls_criterion(logits, labels)
-
-        reconst_loss = reconst_criterion(reconstruct, inputs)
-
-        if (torch.isnan(cls_loss) or torch.isnan(reconst_loss)):
-            print("Nan at iteration ", iter)
-            cls_loss = 0.0
-            reconst_loss = 0.0
-            logits = 0.0
-            reconstruct = 0.0
-            continue
-
-        loss = cls_loss + reconst_loss
-
-        loss.backward()
-        optimizer.step()
-
-        total_loss = total_loss + loss.item()
-        total_cls_loss = total_cls_loss + cls_loss.item()
-        total_reconst_loss = total_reconst_loss + reconst_loss.item()
-
-        _, predicted = torch.max(logits.data, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
-        iter = iter + 1
-
-    return [(100 * (correct / total)), (total_cls_loss / iter), (total_reconst_loss / iter), (total_loss / iter)], total_loss
-    '''
 
 
 def test():
@@ -231,11 +196,11 @@ def test():
     net.load_state_dict(torch.load('../save_folder/models/DHR_' + str(hyper_para.epochs) + '.pth'))
 
     knwSet = FilterableImageFolder(root=os.path.join(hyper_para.dataset_dir, "train"),
-                                     transform=hyper_para.trainTransforms,
-                                     valid_classes=hyper_para.knw_labels)
+                                   transform=hyper_para.trainTransforms,
+                                   valid_classes=hyper_para.knw_labels)
     unkSet = FilterableImageFolder(root=os.path.join(hyper_para.dataset_dir, "test"),
-                                    transform=hyper_para.trainTransforms,
-                                    valid_classes=hyper_para.unk_labels)
+                                   transform=hyper_para.trainTransforms,
+                                   valid_classes=hyper_para.unk_labels)
 
     knwLoader = torch.utils.data.DataLoader(knwSet, batch_size=1, shuffle=True)
     unkLoader = torch.utils.data.DataLoader(unkSet, batch_size=1, shuffle=False)
@@ -334,7 +299,7 @@ def test():
         iii += 1
         unk_unk_mse[i] = mse
         all_test_mse[k] = mse
-        all_test_label[k] = -1   # 未知的标签为-1
+        all_test_label[k] = -1  # 未知的标签为-1
         all_test_score[k] = temp_scores
         k += 1
         i += 1
@@ -344,45 +309,6 @@ def test():
     scipy.io.savemat('../save_folder/results/label.mat', {'label': all_test_label})
     scipy.io.savemat('../save_folder/results/encoded_images/kwn.mat', {'kwn': kwn_mse})
     scipy.io.savemat('../save_folder/results/encoded_images/unk_unk.mat', {'unk_unk': unk_unk_mse})
-
-    '''
-    
-    net.eval()
-    correct = 0
-    total = 0
-    total_loss = 0.0
-    total_cls_loss = 0.0
-    total_reconst_loss = 0.0
-    iter = 0
-    cls_criterion = nn.CrossEntropyLoss()
-    reconst_criterion = nn.MSELoss()
-
-    with torch.no_grad():  # 在确知不使用反向传播的情况下，可以减少内存消耗
-        for data in testloader:
-            images, labels = data
-            images = images.cuda(non_blocking=True)
-            labels = labels.cuda(non_blocking=True)
-
-            logits, reconstruct, _ = net(images)
-
-            cls_loss = cls_criterion(logits, labels)
-
-            reconst_loss = reconst_criterion(reconstruct, images)
-
-            loss = cls_loss + reconst_loss
-
-            total_loss = total_loss + loss.item()
-            total_cls_loss = total_cls_loss + cls_loss.item()
-            total_reconst_loss = total_reconst_loss + reconst_loss.item()
-
-            _, predicted = torch.max(logits.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-            iter = iter + 1
-
-    return [(100 * (correct / total)), (total_cls_loss / iter), (total_reconst_loss / iter),
-            (total_loss / iter)], total_loss
-'''
 
 
 def train():
@@ -403,10 +329,19 @@ def train():
     net, train_process, val_process = train_model(
         net, trainLoader, hyper_para.train_rate, ce_criterion, mse_criterion, num_epochs=hyper_para.epochs
     )
-    plt.figure(figsize=(12, 4))
-    plt.subplot(2, 2, 1), plt.plot(train_process.epoch, train_process.train_loss_all, label="Train loss")
-    plt.subplot(2, 2, 2), plt.plot(train_process.epoch, train_process.train_acc_all, label="Train acc")
-    plt.subplot(2, 2, 3), plt.plot(val_process.epoch, val_process.val_loss_all, label="Val loss")
-    plt.subplot(2, 2, 4), plt.plot(val_process.epoch, val_process.val_acc_all, label="Val acc")
-    plt.show()
     torch.save(net.state_dict(), '../save_folder/models/DHR_' + str(hyper_para.epochs) + '.pth')  # 保存模型
+    plt.figure(figsize=(12, 4))
+    plt.subplot(2, 2, 1)
+    plt.plot(train_process.epoch, train_process.train_loss_cc, label="Train loss")
+    plt.title("loss_cc")
+    plt.subplot(2, 2, 2)
+    plt.plot(train_process.epoch, train_process.train_acc_all, label="Train acc")
+    plt.title("Train acc")
+    plt.subplot(2, 2, 3)
+    plt.plot(val_process.epoch, train_process.train_loss_rc, label="Val loss")
+    plt.title("loss_rc")
+    plt.subplot(2, 2, 4)
+    plt.plot(val_process.epoch, val_process.val_acc_all, label="Val acc")
+    plt.title("Val acc")
+    plt.show()
+

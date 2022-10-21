@@ -10,7 +10,7 @@ random.seed(1)
 class Hyperparameters:
     def __init__(self):
         self.batch_size = 48
-        self.epochs = 100
+        self.epochs = 200
         self.lr = 0.05
         self.alpha = 0.8
 
@@ -19,7 +19,7 @@ class Hyperparameters:
         self.train_rate = 0.8
         self.image_channel = 1
 
-        self.mode = 'test'  # train or test
+        self.mode = 'train'  # train or test
         self.dataset_dir = '../../datasets/mstar10'  # mstar
         self.save_path = '../save_models/mstar10'
 
